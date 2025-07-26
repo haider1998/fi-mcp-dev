@@ -1,22 +1,22 @@
 # Cloud Build configuration file
-# This builds a Docker image, pushes it to Container Registry, and deploys to Cloud Run
+# This builds a Docker image, pushes it to Artifact Registry, and deploys to Cloud Run
 
 steps:
   # Step 1: Build the Docker image
   - name: 'gcr.io/cloud-builders/docker'
     args: [
       'build',
-      '-t', 'gcr.io/avestoai-466417/${_SERVICE_NAME}:${SHORT_SHA}',
-      '-t', 'gcr.io/avestoai-466417/${_SERVICE_NAME}:latest',
+      '-t', '${_REGION}-docker.pkg.dev/avestoai-466417/${_REPOSITORY}/${_SERVICE_NAME}:${SHORT_SHA}',
+      '-t', '${_REGION}-docker.pkg.dev/avestoai-466417/${_REPOSITORY}/${_SERVICE_NAME}:latest',
       '.'
     ]
     id: 'build-image'
 
-  # Step 2: Push the Docker image to Container Registry
+  # Step 2: Push the Docker image to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
     args: [
       'push',
-      'gcr.io/avestoai-466417/${_SERVICE_NAME}:${SHORT_SHA}'
+      '${_REGION}-docker.pkg.dev/avestoai-466417/${_REPOSITORY}/${_SERVICE_NAME}:${SHORT_SHA}'
     ]
     id: 'push-image'
     waitFor: ['build-image']
@@ -25,7 +25,7 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args: [
       'push',
-      'gcr.io/avestoai-466417/${_SERVICE_NAME}:latest'
+      '${_REGION}-docker.pkg.dev/avestoai-466417/${_REPOSITORY}/${_SERVICE_NAME}:latest'
     ]
     id: 'push-latest'
     waitFor: ['build-image']
@@ -34,7 +34,7 @@ steps:
   - name: 'gcr.io/cloud-builders/gcloud'
     args: [
       'run', 'deploy', '${_SERVICE_NAME}',
-      '--image', 'gcr.io/avestoai-466417/${_SERVICE_NAME}:${SHORT_SHA}',
+      '--image', '${_REGION}-docker.pkg.dev/avestoai-466417/${_REPOSITORY}/${_SERVICE_NAME}:${SHORT_SHA}',
       '--region', '${_REGION}',
       '--platform', 'managed',
       '--allow-unauthenticated',
@@ -68,10 +68,13 @@ serviceAccount: 'projects/avestoai-466417/serviceAccounts/my-ci-cd-sa@avestoai-4
 
 # Substitutions (variables) - these can be overridden when triggering the build
 substitutions:
+  # Artifact Registry repository name
+  _REPOSITORY: 'my-docker-repo'
+
   # Service name for your Cloud Run service
   _SERVICE_NAME: 'my-app'
 
-  # Region where to deploy Cloud Run service
+  # Region where to deploy Cloud Run service (should match Artifact Registry region)
   _REGION: 'us-central1'
 
   # Port your application listens on
@@ -102,5 +105,6 @@ timeout: '1200s'
 tags:
   - 'cloud-run'
   - 'docker'
+  - 'artifact-registry'
   - '${_SERVICE_NAME}'
   - '${_ENVIRONMENT}'
